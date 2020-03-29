@@ -159,8 +159,15 @@ void loop() {
 }
 
 void printDate(time_t t){
-  printNumber(0, day(t), 10, 2, false, true);
-  printNumber(2, month(t), 10, 2, false, false);
+  int m = month(t);
+  int d = day(t);
+  if(m<10){
+    printNumber(0, d, 10, 3, false, true);
+    printNumber(3, m, 10, 1, false, true);
+  }else{
+    printNumber(0, d, 10, 2, false, true);
+    printNumber(2, m, 10, 2, false, true);
+  }
 }
 
 void printTemperature(){
