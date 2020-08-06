@@ -32,7 +32,6 @@ LedControl lc=LedControl(DISP_DATA_IN,DISP_CLOCK,DISP_LOAD, DISP_NUM_MAX_DEVICES
 WiFiUDP ntpUDP;
 WiFiManager wifiManager;
 WiFiClientSecure espClient;
-HTTPClient http;
 NTPClient timeClient(ntpUDP, "pool.ntp.org");
 
 // Central European Time (Frankfurt, Paris)
@@ -134,7 +133,7 @@ void loop() {
   if((millis()/1000)%12 < 3){
     printNumber(0, (uint32_t)second(t), 10, 4, false, false );
   }else
-  if((millis()/1000)%12 < 9){
+  if((millis()/1000)%12 < 9 && temp > -100){
     printTemperature();
   }else{
     printDate(t);
@@ -142,6 +141,7 @@ void loop() {
 
   //load temperature each 900 seconds (15 minutes)
   if((millis()/1000)%900 == 0){
+  
     loadTemperature();
   }
 
@@ -162,8 +162,9 @@ void printDate(time_t t){
   int m = month(t);
   int d = day(t);
   if(m<10){
-    printNumber(0, d, 10, 3, false, true);
-    printNumber(3, m, 10, 1, false, true);
+    printNumber(0, d, 10, 2, false, false);
+    printNumber(3, m, 10, 1, false, false);
+    lc.setChar(0,2,'-',false);
   }else{
     printNumber(0, d, 10, 2, false, true);
     printNumber(2, m, 10, 2, false, true);
@@ -284,22 +285,32 @@ void printNumber(byte pos, int16_t v, int base) {
     lc.setDigit(0,pos+3,(byte)ones,false); 
 } 
 
+HTTPClient http;
 void initTemperatureLoading(){
   espClient.setCACert(___GTS1D2_crt, ___GTS1D2_crt_size);
   http.begin(espClient, URL_EXTERNAL_TEMPERATURE);
+  http.setTimeout(10000);
+  http.setReuse(true);
 }
 
-void loadTemperature(){
-  
+void loadTemperature() {
+  for(int i=0;i<10 && WiFi.status() != WL_CONNECTED; i++){
+    delay(1000);
+  }
   int status = http.GET();
   Serial.print("resp=");
   Serial.println(status);
-  String payload = http.getString();
-  Serial.println("response:");
-  Serial.println(payload);
+  if(status<0) {
+    delay(1000);
+  }
 
-  DynamicJsonDocument doc(512);
-  deserializeJson(doc, payload);
-  float tf = doc["now"]["temperature"];
-  temp = (tf + (float)0.5); //rounding
+  if(status == 200) {
+    String payload = http.getString();
+    DynamicJsonDocument doc(512);
+    deserializeJson(doc, payload);
+    float tf = doc["now"]["temperature"];
+    temp = (tf + (float)0.5); //rounding
+  }else{
+    temp = -100; //download error
+  }
 }
