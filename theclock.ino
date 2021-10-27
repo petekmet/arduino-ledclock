@@ -11,7 +11,8 @@
 #include <WiFiClient.h>
 #include <ArduinoJson.h>
 
-#include "gts_1d2.h"
+#include "gts1d4.h"
+// #include "gts_1d2.h"
 
 #define DISP_DATA_IN 5
 #define DISP_CLOCK 4
@@ -31,9 +32,9 @@ void loadTemperature();
 LedControl lc=LedControl(DISP_DATA_IN,DISP_CLOCK,DISP_LOAD, DISP_NUM_MAX_DEVICES); 
 WiFiUDP ntpUDP;
 WiFiManager wifiManager;
-WiFiClientSecure espClient;
+BearSSL::WiFiClientSecure espClient;
 NTPClient timeClient(ntpUDP, "pool.ntp.org");
-
+X509List cert;
 // Central European Time (Frankfurt, Paris)
 TimeChangeRule CEST = {"CEST", Last, Sun, Mar, 2, 120};     // Central European Summer Time
 TimeChangeRule CET = {"CET ", Last, Sun, Oct, 3, 60};       // Central European Standard Time
@@ -91,13 +92,15 @@ void setup_wifi() {
   while(!timeClient.update()){
     timeClient.forceUpdate();
   }
-
+  
+  cert.append(gts1d4_der, gts1d4_der_size);
+  espClient.setTrustAnchors(&cert);
   espClient.setX509Time(timeClient.getEpochTime());
   setTime(timeClient.getEpochTime()); // set current system time
 }
 
 void setup() {
-  Serial.begin(115200);
+  Serial.begin(9600);
   pinMode(PIR, INPUT);
   
   lc.shutdown(0, false); 
@@ -287,7 +290,8 @@ void printNumber(byte pos, int16_t v, int base) {
 
 HTTPClient http;
 void initTemperatureLoading(){
-  espClient.setCACert(___GTS1D2_crt, ___GTS1D2_crt_size);
+  // espClient.setCACert(gts1d4_der, gts1d4_der_size);
+  espClient.setTrustAnchors(&cert);
   http.begin(espClient, URL_EXTERNAL_TEMPERATURE);
   http.setTimeout(10000);
   http.setReuse(true);
